@@ -1,6 +1,10 @@
 import { Button } from "@/components/ui/button";
+import { auth } from "@clerk/nextjs/server";
+import Link from "next/link";
 
-export default function Home() {
+export default async function Home() {
+  const { userId } = await auth();
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
       <main className="flex flex-col items-center gap-8 px-4">
@@ -13,18 +17,25 @@ export default function Home() {
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-3 justify-center">
-          <Button>Default Button</Button>
-          <Button variant="secondary">Secondary</Button>
-          <Button variant="outline">Outline</Button>
-          <Button variant="ghost">Ghost</Button>
-          <Button variant="destructive">Destructive</Button>
-        </div>
+        {userId ? (
+          <div className="flex gap-3">
+            <Button asChild>
+              <Link href="/dashboard">Go to Dashboard</Link>
+            </Button>
+          </div>
+        ) : (
+          <div className="flex gap-3">
+            <Button asChild>
+              <Link href="/sign-in">Sign In</Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link href="/sign-up">Sign Up</Link>
+            </Button>
+          </div>
+        )}
 
-        <div className="flex gap-3">
-          <Button size="sm">Small</Button>
-          <Button size="default">Default</Button>
-          <Button size="lg">Large</Button>
+        <div className="mt-8 text-center text-sm text-muted-foreground">
+          <p>Built with Next.js 16, React 19, TypeScript, Prisma & Clerk</p>
         </div>
       </main>
     </div>
