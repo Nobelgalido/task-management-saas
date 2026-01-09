@@ -57,3 +57,5 @@ Thumbs.db
 
 # Context files (local only)
 CLAUDE.md
+
+/lib/generated/prisma

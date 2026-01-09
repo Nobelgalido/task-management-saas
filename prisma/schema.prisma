@@ -1,0 +1,176 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================
+// USER & AUTHENTICATION
+// ============================================
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  avatarUrl String?  @map("avatar_url")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  workspaceMembers WorkspaceMember[]
+  createdProjects  Project[]         @relation("ProjectCreator")
+  createdTasks     Task[]            @relation("TaskCreator")
+  assignedTasks    Task[]            @relation("TaskAssignee")
+
+  @@map("users")
+}
+
+// ============================================
+// WORKSPACE (Multi-tenant isolation)
+// ============================================
+
+model Workspace {
+  id                 String              @id @default(cuid())
+  name               String
+  slug               String              @unique
+  subscriptionTier   SubscriptionTier    @default(FREE) @map("subscription_tier")
+  subscriptionStatus SubscriptionStatus? @map("subscription_status")
+  stripeCustomerId   String?             @unique @map("stripe_customer_id")
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
+
+  // Relations
+  members  WorkspaceMember[]
+  projects Project[]
+  tasks    Task[]
+
+  @@map("workspaces")
+}
+
+// ============================================
+// WORKSPACE MEMBERSHIP (RBAC)
+// ============================================
+
+model WorkspaceMember {
+  id          String       @id @default(cuid())
+  role        MemberRole   @default(MEMBER)
+  joinedAt    DateTime     @default(now()) @map("joined_at")
+
+  // Foreign Keys
+  workspaceId String       @map("workspace_id")
+  userId      String       @map("user_id")
+
+  // Relations
+  workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@index([userId])
+  @@index([workspaceId])
+  @@map("workspace_members")
+}
+
+// ============================================
+// PROJECTS
+// ============================================
+
+model Project {
+  id          String        @id @default(cuid())
+  name        String
+  description String?
+  status      ProjectStatus @default(ACTIVE)
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  // Foreign Keys
+  workspaceId String        @map("workspace_id")
+  createdById String        @map("created_by")
+
+  // Relations
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy   User          @relation("ProjectCreator", fields: [createdById], references: [id])
+  tasks       Task[]
+
+  @@index([workspaceId])
+  @@index([createdById])
+  @@map("projects")
+}
+
+// ============================================
+// TASKS
+// ============================================
+
+model Task {
+  id          String       @id @default(cuid())
+  title       String
+  description String?
+  status      TaskStatus   @default(TODO)
+  priority    TaskPriority @default(MEDIUM)
+  dueDate     DateTime?    @map("due_date")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  // Foreign Keys
+  workspaceId  String  @map("workspace_id")
+  projectId    String  @map("project_id")
+  createdById  String  @map("created_by")
+  assignedToId String? @map("assigned_to")
+
+  // Relations
+  workspace  Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project    Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy  User      @relation("TaskCreator", fields: [createdById], references: [id])
+  assignedTo User?     @relation("TaskAssignee", fields: [assignedToId], references: [id])
+
+  @@index([workspaceId])
+  @@index([projectId])
+  @@index([createdById])
+  @@index([assignedToId])
+  @@map("tasks")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum SubscriptionTier {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELED
+  PAST_DUE
+  TRIALING
+}
+
+enum MemberRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum ProjectStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
